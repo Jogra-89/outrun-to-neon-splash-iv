@@ -4,6 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>NEON SPLASH IV — Ο ΔΡΟΜΟΣ ΓΙΑ ΤΙΣ ΠΕΤΑΛΟΥΔΕΣ</title>
+
+<!-- ============================================================
+     Facebook link preview.
+     Replace ΤΟ-ΟΝΟΜΑ-ΣΟΥ and ΤΟ-REPO-ΣΟΥ below with your GitHub
+     username and repository name, e.g.
+     https://yiagkos.github.io/neon-splash-iv/share.png
+     Optional: without it the link still works, it just shows a plain preview.
+     ============================================================ -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="NEON SPLASH IV — Φτάσε στο πάρτυ">
+<meta property="og:description" content="10 χλμ στην Επαρχιακή Οδό Παροικιάς–Πούντας. Απόφυγε τα αυτοκίνητα και φτάσε στο πάρτυ. Παίζεται στο κινητό.">
+<meta property="og:image" content="https://ΤΟ-ΟΝΟΜΑ-ΣΟΥ.github.io/ΤΟ-REPO-ΣΟΥ/share.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#12063a">
 <style>
   :root{ --cyan:#00f0ff; --pink:#ff2d95; --ink:#fef6ff; --ink-dim:#c9b8ff; --gold:#ffd23f; }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
@@ -108,7 +122,7 @@
     <div class="col r"><span class="lbl">ΡΕΚΟΡ</span><span class="val best" id="hudBest">0</span></div>
   </div>
   <button id="muteBtn" title="Ήχος">🔊</button>
-  <audio id="bgm" loop preload="auto"></audio>
+  <audio id="bgm" loop preload="auto" src="music.mp3" playsinline></audio>
   <div id="speedo" class="hidden"><span class="n" id="hudSpeed">0</span><br><span class="u">ΧΛΜ/ΩΡΑ</span></div>
 
   <div id="screen-start" class="screen">
@@ -116,6 +130,7 @@
     <p class="goal">🏁 ΦΤΑΣΕ ΣΤΟ ΠΑΡΤΥ</p>
     <p class="info" id="countdownInfo">📅 Σάββατο 22/8 · 19:00 · Πάρος</p>
     <button class="btn" id="btnPlay">▶ Ξεκίνα</button>
+    <p id="musicNote" class="hidden" style="font-size:11px;color:#ff8ad0;margin:2px 0 0;"></p>
   </div>
 
   <div id="screen-name" class="screen hidden">
@@ -311,14 +326,19 @@ const sfx={
 };
 
 // ---- background music: drop a music.mp3 next to index.html and it plays ----
+let musicFailed=false;
 function startMusic(){
   const a=document.getElementById('bgm');
-  if(!a || musicOn || muted) return;
-  if(!a.getAttribute('src')) a.setAttribute('src','music.mp3');
+  if(!a || muted) return;
+  if(musicOn && !a.paused) return;             // already playing, nothing to do
   a.volume=0.42;
   const pr=a.play();
-  if(pr&&pr.catch) pr.catch(()=>{});           // no file, or autoplay blocked — ignore
-  musicOn=true;
+  if(pr && pr.then){
+    pr.then(()=>{ musicOn=true; })             // only NOW is it really playing
+      .catch(()=>{ musicOn=false; });          // blocked or missing — try again next tap
+  } else {
+    musicOn=!a.paused;
+  }
 }
 function applyMute(){
   const a=document.getElementById('bgm');
@@ -1485,11 +1505,25 @@ function paintThumbnails(){
     PAINTERS[key](c,3,3,3);
   }
 }
+function watchMusic(){
+  const a=document.getElementById('bgm');
+  if(!a) return;
+  a.addEventListener('error',()=>{
+    musicFailed=true;
+    const el=document.getElementById('musicNote');
+    if(el){ el.textContent='♪ Το music.mp3 δεν φορτώνει — έλεγξε το όνομα του αρχείου'; el.classList.remove('hidden'); }
+  });
+  // any tap anywhere is a fresh chance to start the track
+  document.getElementById('stage').addEventListener('pointerdown',()=>{
+    if(!muted && !musicFailed) startMusic();
+  });
+}
 async function init(){
   resize(); buildTrack();
   for(const car of cars) findSegment(car.z).cars.push(car);
   paintThumbnails();
   await loadPlayer();
+  watchMusic();
   applyMute();
   toStart();
   requestAnimationFrame(loop);
